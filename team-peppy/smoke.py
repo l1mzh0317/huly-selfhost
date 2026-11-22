@@ -16,6 +16,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import uuid
+import sys
 
 ROOT = Path('/opt/team-peppy')
 b = json.loads((ROOT/'config/binding.json').read_text())
@@ -167,3 +168,69 @@ for invalid, expected in [(None, 401), (jwt(qa, '0596cd5f-58b8-4fa4-866d-ba3fde0
     except urllib.error.HTTPError as error:
         assert error.code==expected
 print(json.dumps({'phase':'passed','task':task['id'],'sessionId':task['sessionId'],'root':root,'inputCount':count,'snapshotRecords':len(snapshot['records']),'replyReturned':True}), flush=True)
+
+if '--conversation' in sys.argv:
+    def wait_for(check, label, seconds=300):
+        until = time.time()+seconds
+        while time.time() < until:
+            value = check()
+            if value:
+                return value
+            time.sleep(2)
+        raise RuntimeError('Conversation check timed out: '+label)
+
+    def reactions(message):
+        return find('activity:class:Reaction', {'attachedTo': message, 'createBy': b['botSocial'], 'emoji': '✅'}, token)
+
+    def replies(message):
+        return find('chunter:class:ThreadMessage', {'attachedTo': message}, token)
+
+    def has_answer(message, answer):
+        return next((r for r in replies(message) if answer in str(r.get('message', ''))), None)
+
+    def send(message, text, mention=False, parent=None):
+        content = ([{'type': 'reference', 'attrs': {'id': b['botPerson'], 'objectclass': 'contact:class:Person', 'label': 'Team Peppy'}}] if mention else [])
+        content.append({'type': 'text', 'text': ' '+text})
+        attrs = {'message': json.dumps({'type': 'doc', 'content': [{'type': 'paragraph', 'content': content}]})}
+        if parent:
+            attrs.update(objectId=channel, objectClass='chunter:class:Channel')
+        tx('chunter:class:ThreadMessage' if parent else 'chunter:class:ChatMessage', message, attrs, token, social, channel,
+           attachedTo=parent or channel, attachedToClass='chunter:class:ChatMessage' if parent else 'chunter:class:Channel', collection='replies' if parent else 'messages')
+
+    assert len(wait_for(lambda: reactions(root), 'received reaction', 30))==1
+    parent = find('chunter:class:ChatMessage', {'_id': root}, token)[0]
+    assert parent.get('reactions', 0)>0, 'Huly must render the native received reaction'
+    worker_reply = has_answer(root, takeover)
+    assert worker_reply and ('?task='+task['id']+'&session=1') in worker_reply['message'] and task['sessionId'] in worker_reply['message'], 'Actual worker reply must carry its session link'
+    print(json.dumps({'phase':'received-and-session-link-verified'}), flush=True)
+
+    background = 'THREAD_CONTEXT_'+nonce
+    background_id = 'peppy-context-'+nonce
+    send(background_id, background+'：只是补充背景供你了解，不需要回复，也不需要采取任何行动。', parent=root)
+    def context_read():
+        current = request(native_url+'tickets/'+task['id'])
+        return next((i for i in current['inputs'] if background in str(i.get('trigger',{}).get('preview','')) and i.get('readAt')), None)
+    wait_for(context_read, 'unmentioned context reached original worker')
+    assert not reactions(background_id), 'Context alone must not be marked as adopted'
+    print(json.dumps({'phase':'unmentioned-context-read-silently'}), flush=True)
+
+    adopted = 'THREAD_ADOPTED_'+nonce
+    adopted_id = 'peppy-adopted-'+nonce
+    send(adopted_id, '继续刚才的目录验证，请回答当前工作目录是否存在，并在这个原线程回复 '+adopted+'。只回答该问题，不修改文件；回答后继续等候。', parent=root)
+    wait_for(lambda: has_answer(root, adopted), 'unmentioned request answered')
+    assert len(wait_for(lambda: reactions(adopted_id), 'adopted reaction', 30))==1
+    print(json.dumps({'phase':'unmentioned-adopted-and-marked'}), flush=True)
+
+    discussion = 'peppy-discussion-'+nonce
+    answer = 'DISCUSSION_OK_'+nonce
+    send(discussion, '只讨论产品体验，不要创建工单，不要执行工具：等待 AI 回复时，显示已接收状态是否有助于减少焦虑？请用一句话回答，并包含 '+answer+'。', mention=True)
+    wait_for(lambda: has_answer(discussion, answer), 'explicit discussion mention must receive an answer')
+    assert len(wait_for(lambda: reactions(discussion), 'discussion receipt', 30))==1
+    followup = 'DISCUSSION_FOLLOWUP_'+nonce
+    followup_id = 'peppy-discussion-followup-'+nonce
+    send(followup_id, '接着刚才的产品讨论：除了已接收，你觉得显示哪个状态最有帮助？请用一句话回答，并包含 '+followup+'。仍然只讨论，不要创建工单或执行工具。', parent=discussion)
+    wait_for(lambda: has_answer(discussion, followup), 'discussion without another mention must stay in context')
+    assert len(wait_for(lambda: reactions(followup_id), 'adopted discussion receipt', 30))==1
+    all_tasks = request(ui_url+'tasks', token)['items']
+    assert not any(discussion in (t.get('sourceUrl') or '') for t in all_tasks), 'Discussion must not allocate an unnecessary worker'
+    print(json.dumps({'phase':'conversation-passed','task':task['id'],'sessionId':task['sessionId'],'discussionRoot':discussion,'receivedReaction':True,'contextOnlySilent':True,'unmentionedAdoptionMarked':True,'discussionAnsweredWithoutWorker':True}), flush=True)

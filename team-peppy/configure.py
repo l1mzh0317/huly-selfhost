@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import time
 import urllib.request
+import runpy
 
 ROOT = Path('/opt/team-peppy')
 native = json.loads((ROOT/'config/native-settings.json').read_text())
@@ -48,3 +49,4 @@ save('policy', {'rules': [{'id': 'team-explicit', 'name': 'Huly 团队明确请�
                 'sources': {'huly': {'allowed': native['allowed'], 'admission': {}}}})
 state = api('state')
 print(json.dumps({'configured': state['setup']['accounts'] is not None, 'health': {k:v['state'] for k,v in state['health'].items()}, 'workers': state['load']}))
+runpy.run_path(str(ROOT/'conversation.py'), run_name='__main__')

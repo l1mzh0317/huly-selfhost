@@ -8,6 +8,10 @@ Huly 的真实 Person mention → `dsh-superagent-huly` Source → DSH Trigger /
 
 Dashboard 直接查询 DSH Store，展示任务状态、最新报告和原 worker session。侧栏通过原生 SessionController 读取可见消息和文本流；补充指令经过 Engine.receive / attach，保留 Mandate 校验、原 session 和请求去重；中断仅取消当前轮。
 
+明确 @ 的消息收到 ✅ 和线程状态，并要求实质性回复。每条机器人回复附原 worker session 的名称和 ID 链接，点击后直接打开对应侧栏。侧栏显示分析中、工具调用和当前轮状态，不展示内部思维链或原始工具参数。
+
+首次 @ 后，同一线程的后续讨论进入上下文。未 @ 的消息只在 Router 或 worker 真正采纳处理后加标记；无关闲聊保持安静。原生 Eval 使用 auto，但 Source 只观察已经邀请机器人的线程，仍受成员名单、策略规则和 Mandate 限制。
+
 没有新增任务数据库、轨迹存储、机器调度或身份钱包。这里的侧栏是服务器网页第一版，尚未替换 Pepper 的本地 Peppy 渲染器或添加桌面应用导航入口。
 
 ## 访问和权限
@@ -40,6 +44,8 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 显式启用 `DSH_SUPERAGENT_HULY_ONLY=1`，GitHub Source 关闭，GitHub 身份和仓库为空；无法通过 gh 执行任务。执行目录在 `/workspace/tickets`，并发上限 2。机器人是当前容器里的执行用户，**不是额外安全沙箱**；挂载目录和容器网络就是当前执行边界。
 
 `configure.py` 是首次部署的配置脚本，会覆盖原生 GitHub Source、Execution、Eval 和 Policy 区块。后续只升级镜像时不要重新执行它，以保留管理员修改的策略。
+
+已有实例升级线程讨论行为时，只运行 `python3 conversation.py`。它保留现有成员名单、策略规则、模型和管理员提示配置，启用受限线程观察，并加入 @ 必答、未 @ 按相关性介入的对话规则；该脚本可重复运行。
 
 ## 验证、更新和回退
 
