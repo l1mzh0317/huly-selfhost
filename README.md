@@ -19,6 +19,8 @@ Huly is resource-heavy. Use a server that meets or exceeds the following:
 
 The Huly platform source code is available on GitHub: **[hcengineering/platform](https://github.com/hcengineering/platform)**
 
+The optional [Team Peppy integration](team-peppy/README.md) connects PT channel messages to a separate DSH instance and provides a task dashboard with access to the original worker sessions.
+
 > [!NOTE]
 > For self-hosted deployments, use production versions (`v*` tags). For example: `v0.7.310`, `v0.7.307`, `v0.6.501`
 > See all available versions on [GitHub Releases](https://github.com/hcengineering/platform/releases).
