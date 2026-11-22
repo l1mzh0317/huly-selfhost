@@ -23,7 +23,7 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 依赖主机现有 `huly-account-1`、`huly-transactor-1`、`huly-nginx-1`、网络 `huly_huly_net` 以及镜像 `pop-super-agent:8c32a9d`（DSH 0.2.1-rc.3 / Node 24 / pnpm 11.7）。这是一份针对当前主机的安装脚本，不是通用安装器。
 
 1. 在 `dsh-superagent-prototype` 的 `codex/team-peppy-huly` 分支安装依赖，运行 `pnpm typecheck`、`pnpm test`，再运行 `pnpm build` 生成部署文件。
-2. 将本目录脚本、compose 文件同步到 `/opt/team-peppy`；将 DSH 的 `lib/`、`team-peppy-ui/`、`package.json`、`cordis.patch.yml` 和本目录 Dockerfile 放在 `/opt/team-peppy/release/`。
+2. 将本目录脚本、compose 文件同步到 `/opt/team-peppy`；将 DSH 的 `lib/`、`team-peppy-ui/`、`package.json`、`cordis.patch.yml` 和本目录 Dockerfile 放在 `/opt/team-peppy/release/`。每次同步前移除该 release 下旧的 `lib/` 和 `team-peppy-ui/`，避免散列文件名的旧编译产物残留；不要清理 `runtime/`、`config/` 或 `workspace/`。
 3. 在主机执行：
 
    ```sh
