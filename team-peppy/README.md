@@ -8,7 +8,7 @@ Huly 的真实 Person mention → `dsh-superagent-huly` Source → DSH Trigger /
 
 Dashboard 直接查询 DSH Store，展示任务状态、最新报告和原 worker session。侧栏通过原生 SessionController 读取可见消息和文本流；补充指令经过 Engine.receive / attach，保留 Mandate 校验、原 session 和请求去重；中断仅取消当前轮。
 
-明确 @ 的消息收到 ✅ 和线程状态，并要求实质性回复。每条机器人回复附原 worker session 的名称和 ID 链接，点击后直接打开对应侧栏。侧栏显示分析中、工具调用和当前轮状态，不展示内部思维链或原始工具参数。
+明确 @ 的消息仍要求实质性回复。处理状态通过消息头右侧的浅灰图标和会话短名展示（最多六个字符，超出省略）；悬停查看完整名称和状态，点击在当前 Huly 右侧面板打开原 worker session。不再发送 ✅、状态回帖、自动接收确认或 worker 链接尾段。侧栏显示分析中、工具调用和当前轮状态，不展示内部思维链或原始工具参数。
 
 首次 @ 后，同一线程的后续讨论进入上下文。未 @ 的消息只在 Router 或 worker 真正采纳处理后加标记；无关闲聊保持安静。原生 Eval 使用 auto，但 Source 只观察已经邀请机器人的线程，仍受成员名单、策略规则和 Mandate 限制。
 

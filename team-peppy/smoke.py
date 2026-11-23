@@ -197,12 +197,17 @@ if '--conversation' in sys.argv:
         tx('chunter:class:ThreadMessage' if parent else 'chunter:class:ChatMessage', message, attrs, token, social, channel,
            attachedTo=parent or channel, attachedToClass='chunter:class:ChatMessage' if parent else 'chunter:class:Channel', collection='replies' if parent else 'messages')
 
-    assert len(wait_for(lambda: reactions(root), 'received reaction', 30))==1
-    parent = find('chunter:class:ChatMessage', {'_id': root}, token)[0]
-    assert parent.get('reactions', 0)>0, 'Huly must render the native received reaction'
+    def badge(message):
+        rows = request(ui_url+'message-status?'+urllib.parse.urlencode({'message':message}), token)['items']
+        return rows[0] if rows else None
+
+    shown = wait_for(lambda: badge(root), 'message-header status', 30)
+    assert shown['taskId']==task['id'] and shown['sessionId']==task['sessionId']
+    assert shown['sessionName']==task['title']
+    assert not reactions(root), 'Header status must not create an emoji receipt'
     worker_reply = has_answer(root, takeover)
-    assert worker_reply and ('?task='+task['id']+'&session=1') in worker_reply['message'] and task['sessionId'] in worker_reply['message'], 'Actual worker reply must carry its session link'
-    print(json.dumps({'phase':'received-and-session-link-verified'}), flush=True)
+    assert worker_reply and '?task=' not in worker_reply['message'] and 'Worker ·' not in worker_reply['message'], 'Actual worker reply must not append a session footer'
+    print(json.dumps({'phase':'message-header-session-binding-verified','noEmojiReceipt':True,'noSessionFooter':True}), flush=True)
 
     background = 'THREAD_CONTEXT_'+nonce
     background_id = 'peppy-context-'+nonce
@@ -211,26 +216,28 @@ if '--conversation' in sys.argv:
         current = request(native_url+'tickets/'+task['id'])
         return next((i for i in current['inputs'] if background in str(i.get('trigger',{}).get('preview','')) and i.get('readAt')), None)
     wait_for(context_read, 'unmentioned context reached original worker')
-    assert not reactions(background_id), 'Context alone must not be marked as adopted'
+    assert not badge(background_id), 'Context alone must not be marked as adopted'
     print(json.dumps({'phase':'unmentioned-context-read-silently'}), flush=True)
 
     adopted = 'THREAD_ADOPTED_'+nonce
     adopted_id = 'peppy-adopted-'+nonce
     send(adopted_id, '继续刚才的目录验证，请回答当前工作目录是否存在，并在这个原线程回复 '+adopted+'。只回答该问题，不修改文件；回答后继续等候。', parent=root)
     wait_for(lambda: has_answer(root, adopted), 'unmentioned request answered')
-    assert len(wait_for(lambda: reactions(adopted_id), 'adopted reaction', 30))==1
+    assert wait_for(lambda: badge(adopted_id), 'adopted message-header status', 30)['sessionId']==task['sessionId']
+    assert not reactions(adopted_id)
     print(json.dumps({'phase':'unmentioned-adopted-and-marked'}), flush=True)
 
     discussion = 'peppy-discussion-'+nonce
     answer = 'DISCUSSION_OK_'+nonce
     send(discussion, '只讨论产品体验，不要创建工单，不要执行工具：等待 AI 回复时，显示已接收状态是否有助于减少焦虑？请用一句话回答，并包含 '+answer+'。', mention=True)
     wait_for(lambda: has_answer(discussion, answer), 'explicit discussion mention must receive an answer')
-    assert len(wait_for(lambda: reactions(discussion), 'discussion receipt', 30))==1
+    assert wait_for(lambda: badge(discussion), 'discussion header receipt', 30)['sessionId'] is None
+    assert not reactions(discussion)
     followup = 'DISCUSSION_FOLLOWUP_'+nonce
     followup_id = 'peppy-discussion-followup-'+nonce
     send(followup_id, '接着刚才的产品讨论：除了已接收，你觉得显示哪个状态最有帮助？请用一句话回答，并包含 '+followup+'。仍然只讨论，不要创建工单或执行工具。', parent=discussion)
     wait_for(lambda: has_answer(discussion, followup), 'discussion without another mention must stay in context')
-    assert len(wait_for(lambda: reactions(followup_id), 'adopted discussion receipt', 30))==1
+    assert wait_for(lambda: badge(followup_id), 'adopted discussion header receipt', 30)['sessionId'] is None
     all_tasks = request(ui_url+'tasks', token)['items']
     assert not any(discussion in (t.get('sourceUrl') or '') for t in all_tasks), 'Discussion must not allocate an unnecessary worker'
-    print(json.dumps({'phase':'conversation-passed','task':task['id'],'sessionId':task['sessionId'],'discussionRoot':discussion,'receivedReaction':True,'contextOnlySilent':True,'unmentionedAdoptionMarked':True,'discussionAnsweredWithoutWorker':True}), flush=True)
+    print(json.dumps({'phase':'conversation-passed','task':task['id'],'sessionId':task['sessionId'],'discussionRoot':discussion,'messageHeaderStatus':True,'noEmojiReceipt':True,'contextOnlySilent':True,'unmentionedAdoptionMarked':True,'discussionAnsweredWithoutWorker':True}), flush=True)
