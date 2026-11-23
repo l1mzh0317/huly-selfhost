@@ -38,7 +38,7 @@ base = old_front['Config']['Image']
 user = old_front['Config'].get('User') or 'root'
 assert re.fullmatch(r'[\w./:@-]+', base) and re.fullmatch(r'[\w:-]+', user)
 image = 'huly-front-local:0.7.426-peppy-'+args.source[:8]
-(args.frontend/'Dockerfile').write_text(f'FROM {base}\nUSER root\nRUN rm -rf /app/dist\nCOPY dist/ /app/dist/\nUSER {user}\n')
+(args.frontend/'Dockerfile').write_text(f'FROM {base}\nUSER root\nCOPY dist/ /app/dist/\nUSER {user}\n')
 run(['docker','build','-t',image,'--label','org.opencontainers.image.revision='+args.source,str(args.frontend)])
 config = huly/'compose.override.yaml'
 original = config.read_text()
@@ -86,11 +86,14 @@ try:
         except Exception: pass
         time.sleep(1)
     else: raise RuntimeError('Frontend did not become ready')
+    run(['docker','exec','huly-nginx-1','nginx','-t'])
+    run(['docker','exec','huly-nginx-1','nginx','-s','reload'])
 except Exception:
     config.write_text(original)
     old_tag=old_dsh['Config']['Image'].split(':')[-1]
     set_version(old_tag)
     run(['docker','compose','up','-d','--no-deps','app'],root)
     run(front_command+['up','-d','--no-deps','front'],huly)
+    run(['docker','exec','huly-nginx-1','nginx','-s','reload'])
     raise
 print(json.dumps({'frontendImage':image,'dshVersion':args.dsh_version,'source':args.source,'originalMasterPreserved':True,'privateBackup':str(backup)}))
