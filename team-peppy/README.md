@@ -66,3 +66,5 @@ python3 /opt/team-peppy/smoke.py --conversation
 ```
 
 `deploy-headers.py` 只替换 frontend 镜像和 Team Peppy 镜像；用 YAML 源位置仅更新 `front.image`，保留现有 Compose `!reset` 和其他配置。它停止独立 Team Peppy 服务后备份 runtime 和配置，保留原 master/session 命名空间，分别检查新服务就绪，失败时回退镜像。备份位于 root 私有的 `/opt/team-peppy/backups/message-headers-*`。不更新 Huly model、数据库、账号或其他服务。
+
+2026-11-23 上线验证：Huly 前端 `ad863ff`、DSH `c76c755`，原 master/session 命名空间保持一致。65 个测试文件、1,226 项测试通过；真实私有频道验证了消息头绑定、原会话接手和 SSE、无新 emoji 回执/会话尾注、未 @ 上下文静默、相关讨论采纳和讨论不额外创建 worker。Huly 网页入口已核对为新产物。Mac `0.1.10-peppy.21` 已由 [发布流程](https://github.com/l1mzh0317/huly-superagent-desktop/actions/runs/45102884137) 发布，更新服务验签通过，差分基线为 `.20`、`.19`、`.18`。本次未构建 Windows，也未同步安装包镜像。
