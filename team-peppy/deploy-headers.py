@@ -14,7 +14,7 @@ import yaml
 parser = argparse.ArgumentParser()
 parser.add_argument('--frontend', type=Path, required=True)
 parser.add_argument('--source', required=True)
-parser.add_argument('--dsh-version', default='header-0bb2325')
+parser.add_argument('--dsh-version', required=True)
 args = parser.parse_args()
 assert re.fullmatch(r'[a-f0-9]{40}', args.source)
 assert re.fullmatch(r'[A-Za-z0-9_.-]+', args.dsh_version)

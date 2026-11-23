@@ -60,7 +60,7 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 前端在 `huly-superagent-desktop` 的 Mac 发布流程中构建，Mac 包和 Huly 网页使用同一份已验证的 `dev/prod/dist`。将其同步到 Huly 主机的一个新目录（目录下保留 `dist/`），然后执行：
 
 ```sh
-python3 /opt/team-peppy/deploy-headers.py --frontend /opt/team-peppy/frontend-release/SOURCE --source FULL_SOURCE_SHA --dsh-version header-0bb2325
+python3 /opt/team-peppy/deploy-headers.py --frontend /opt/team-peppy/frontend-release/SOURCE --source FULL_SOURCE_SHA --dsh-version header-c76c755
 python3 /opt/team-peppy/conversation.py
 python3 /opt/team-peppy/smoke.py conversation
 ```
