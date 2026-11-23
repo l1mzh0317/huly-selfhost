@@ -10,6 +10,7 @@ services:
     stop_grace_period: 5m
     env_file: ./config/runtime.env
     environment:
+      HULY_ACCOUNTS_URL: ${HULY_ACCOUNTS_URL:-http://account:3000}
       TEAM_PEPPY_INSTANCES_PROBE_SOCKET: /run/pepper-instance-probe/connectivity.sock
     depends_on:
       - instances-probe
