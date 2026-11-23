@@ -193,14 +193,18 @@ if args.conversation:
     def has_answer(message, answer):
         return next((r for r in replies(message) if answer in str(r.get('message', ''))), None)
 
-    def send(message, text, mention=False, parent=None):
+    def send(message, text, mention=False, parent=None, route=None, destination=None):
+        current_channel = destination or channel
         content = ([{'type': 'reference', 'attrs': {'id': b['botPerson'], 'objectclass': 'contact:class:Person', 'label': 'Team Peppy'}}] if mention else [])
+        if route:
+            assert mention
+            content[0]['attrs']['peppyRoute'] = route
         content.append({'type': 'text', 'text': ' '+text})
         attrs = {'message': json.dumps({'type': 'doc', 'content': [{'type': 'paragraph', 'content': content}]})}
         if parent:
-            attrs.update(objectId=channel, objectClass='chunter:class:Channel')
-        tx('chunter:class:ThreadMessage' if parent else 'chunter:class:ChatMessage', message, attrs, token, social, channel,
-           attachedTo=parent or channel, attachedToClass='chunter:class:ChatMessage' if parent else 'chunter:class:Channel', collection='replies' if parent else 'messages')
+            attrs.update(objectId=current_channel, objectClass='chunter:class:Channel')
+        tx('chunter:class:ThreadMessage' if parent else 'chunter:class:ChatMessage', message, attrs, token, social, current_channel,
+           attachedTo=parent or current_channel, attachedToClass='chunter:class:ChatMessage' if parent else 'chunter:class:Channel', collection='replies' if parent else 'messages')
 
     def badge(message):
         rows = request(ui_url+'message-status?'+urllib.parse.urlencode({'message':message}), token)['items']
@@ -246,3 +250,55 @@ if args.conversation:
     all_tasks = request(ui_url+'tasks', token)['items']
     assert not any(discussion in (t.get('sourceUrl') or '') for t in all_tasks), 'Discussion must not allocate an unnecessary worker'
     print(json.dumps({'phase':'conversation-passed','task':task['id'],'sessionId':task['sessionId'],'discussionRoot':discussion,'messageHeaderStatus':True,'noEmojiReceipt':True,'contextOnlySilent':True,'unmentionedAdoptionMarked':True,'discussionAnsweredWithoutWorker':True}), flush=True)
+
+    # Authenticated manual choice must bind another Huly thread to the ORIGINAL worker.
+    selected_id = 'peppy-selected-'+nonce
+    second_channel = channel+'-routing'
+    if not find('chunter:class:Channel', {'_id': second_channel}):
+        tx('chunter:class:Channel', second_channel, {'name':'Team Peppy 跨频道验证','description':'仅自动验证使用','private':True,'archived':False,'members':[qa,b['botAccount'],owner]})
+    current_settings = request(native_url+'settings')
+    source_config = next(s['value'] for s in current_settings['sources'] if s['id']=='huly')
+    if second_channel not in source_config['config']['channels']:
+        source_config['config']['channels'].append(second_channel); save('source:huly', source_config)
+    choice = request(ui_url+'route', token, {'task': task['id']})
+    selected_answer = 'SELECTED_SESSION_OK_'+nonce
+    send(selected_id, '继续这个已有工单的目录检查，只需在线程回复 '+selected_answer+'，不修改文件，不要另开工单。回答后继续等待。', mention=True, route=choice['route'], destination=second_channel)
+    chosen = wait_for(lambda: badge(selected_id), 'selected session binding', 60)
+    assert chosen['taskId']==task['id'] and chosen['sessionId']==task['sessionId']
+    wait_for(lambda: has_answer(selected_id, selected_answer), 'selected worker answered original new thread')
+    routed_context_marker = 'SELECTED_THREAD_CONTEXT_'+nonce
+    routed_context_id = 'peppy-selected-followup-'+nonce
+    send(routed_context_id, routed_context_marker+'：只是背景补充，不需要回复或采取行动。', parent=selected_id, destination=second_channel)
+    def routed_followup_read():
+        current = request(native_url+'tickets/'+task['id'])
+        return next((i for i in current['inputs'] if routed_context_marker in str(i.get('trigger',{}).get('preview','')) and i.get('readAt')), None)
+    wait_for(routed_followup_read, 'selected session retains unmentioned follow-up context')
+    assert not badge(routed_context_id)
+    context = request(path+'/context', token)
+    assert any(n['messageId']==root for n in context['nodes'])
+    assert any(n['messageId']==selected_id for n in context['nodes'])
+    assert len({n['threadKey'] for n in context['nodes']}) >= 2
+    adopted_shown = badge(adopted_id)
+    assert adopted_shown and not adopted_shown['sessionEntry'] and adopted_shown['sessionName'] is None
+    discussion_context = request(ui_url+'conversations/'+discussion, token)
+    assert discussion_context['conversation'] and discussion_context['sessionId'] is None
+    assert any(n['messageId']==followup_id for n in discussion_context['context']['nodes'])
+    print(json.dumps({'phase':'manual-session-and-context-verified','sameWorker':True,'multipleHulyThreads':True,'multipleChannels':True,'selectedThreadFollowup':True,'consolidatedEntry':True,'discussionContext':True}), flush=True)
+
+    # Explicit new session stays independent of existing work even in a previously watched conversation.
+    new_id = 'peppy-new-session-'+nonce
+    new_choice = request(ui_url+'route', token, {'task': 'new'})
+    new_answer = 'NEW_SESSION_OK_'+nonce
+    send(new_id, '请单独建立一个名为“独立会话验证 '+nonce+'”的新工单，交给新的 worker 检查其当前工作目录存在；不修改文件、不调用外部服务。然后回复 '+new_answer+'，完成并结束这个新工单。', mention=True, parent=root, route=new_choice['route'])
+    def new_task():
+        status = badge(new_id)
+        return status if status and status.get('taskId') and status.get('sessionId') else None
+    fresh = wait_for(new_task, 'explicit independent new session')
+    assert fresh['taskId']!=task['id'] and fresh['sessionId']!=task['sessionId']
+    wait_for(lambda: has_answer(root, new_answer), 'new session completion reply')
+    def completed_entry():
+        current = badge(new_id)
+        return current if current and current['state']=='completed' else None
+    ended = wait_for(completed_entry, 'completed entry retained')
+    assert ended['taskId']==fresh['taskId'] and ended['sessionName']
+    print(json.dumps({'phase':'new-session-completed-entry-verified','task':fresh['taskId'],'sessionId':fresh['sessionId'],'clickableAfterCompletion':True}), flush=True)

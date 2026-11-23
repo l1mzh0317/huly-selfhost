@@ -34,6 +34,7 @@ def native():
 root = Path('/opt/team-peppy')
 huly = Path('/opt/huly')
 old_front, old_dsh, previous = inspect('huly-front-1'), inspect('team-peppy-app-1'), native()
+change_backend = old_dsh['Config']['Image'] != 'team-peppy:'+args.dsh_version
 base = old_front['Config']['Image']
 user = old_front['Config'].get('User') or 'root'
 assert re.fullmatch(r'[\w./:@-]+', base) and re.fullmatch(r'[\w:-]+', user)
@@ -62,12 +63,13 @@ def set_version(value):
 
 front_command = ['docker','compose','-f','compose.yml','-f','compose.override.yaml']
 try:
-    run(['docker','compose','stop','-t','120','app'],root)
-    shutil.copytree(root/'runtime',backup/'runtime',symlinks=True)
-    set_version(args.dsh_version)
+    if change_backend:
+        run(['docker','compose','stop','-t','120','app'],root)
+        shutil.copytree(root/'runtime',backup/'runtime',symlinks=True)
+        set_version(args.dsh_version)
     config.write_text(updated)
     run(front_command+['config','--quiet'],huly)
-    run(['docker','compose','up','-d','--no-deps','app'],root)
+    if change_backend: run(['docker','compose','up','-d','--no-deps','app'],root)
     for _ in range(60):
         try:
             state=native()
@@ -91,9 +93,10 @@ try:
 except Exception:
     config.write_text(original)
     old_tag=old_dsh['Config']['Image'].split(':')[-1]
-    set_version(old_tag)
-    run(['docker','compose','up','-d','--no-deps','app'],root)
+    if change_backend:
+        set_version(old_tag)
+        run(['docker','compose','up','-d','--no-deps','app'],root)
     run(front_command+['up','-d','--no-deps','front'],huly)
     run(['docker','exec','huly-nginx-1','nginx','-s','reload'])
     raise
-print(json.dumps({'frontendImage':image,'dshVersion':args.dsh_version,'source':args.source,'originalMasterPreserved':True,'privateBackup':str(backup)}))
+print(json.dumps({'frontendImage':image,'dshVersion':args.dsh_version,'source':args.source,'originalMasterPreserved':True,'backendRestarted':change_backend,'privateBackup':str(backup)}))

@@ -14,6 +14,14 @@ Dashboard 直接查询 DSH Store，展示任务状态、最新报告和原 worke
 
 没有新增任务数据库、轨迹存储、机器调度或身份钱包。这里的侧栏是服务器网页第一版，尚未替换 Pepper 的本地 Peppy 渲染器或添加桌面应用导航入口。
 
+### 会话归属与上下文
+
+输入真实 @Team Peppy 后，编辑器显示可选的「自动判断」入口。不选择时正常交给 Router；可以指定有接手权限的已有任务，或要求新建独立会话。手动选择的授权只在服务内存中短暂保留，消息仅携带不透明标识；到实际接收时再次使用成员身份检查当前频道和目标任务的所有关联频道。失效、重启或权限变化后明确显示失败，不回退自动执行。新建请求使用独立原生评估线程和 `newTicket` 标志，核心拒绝把它接到旧工单。指定已有会话通过原生 Engine.attach 绑定并保留原线程订阅，之后未 @ 的线程补充仍进入该 worker；明确指定的目标不会被悄悄改派。
+
+同一 Huly 线程、同一任务只在最早的关联消息保留可点击的六字会话名；后续消息仅展示其自身的状态图标。完成后入口保留。无法解析的旧未完成接收记录以本次启用时间为界隐藏，不重放历史任务。仅讨论的回答打开讨论上下文，不创建或伪造 worker。
+
+侧栏在「工作会话」和「上下文」间切换。上下文的关系图按真实频道和 Huly 线程分支汇总到任务；时间线按时间列出同一批消息、发送人、采纳状态和原消息链接。读取原生 Trigger、Ticket、Disposition，并以当前用户权限补充 Huly 线程回复；没有增加任务或轨迹存储。跨频道任务仍要求读者可以访问所有关联频道；混合来源任务继续关闭访问。
+
 ## 访问和权限
 
 先在同一浏览器登录 PT，然后访问 `https://superagent-vps.tail0ac8b2.ts.net/team-peppy`。
@@ -27,7 +35,7 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 依赖主机现有 `huly-account-1`、`huly-transactor-1`、`huly-nginx-1`、网络 `huly_huly_net` 以及镜像 `pop-super-agent:8c32a9d`（DSH 0.2.1-rc.3 / Node 24 / pnpm 11.7）。这是一份针对当前主机的安装脚本，不是通用安装器。
 
 1. 在 `dsh-superagent-prototype` 的 `codex/team-peppy-huly` 分支安装依赖，运行 `pnpm typecheck`、`pnpm test`，再运行 `pnpm build` 生成部署文件。
-2. 将本目录脚本、compose 文件同步到 `/opt/team-peppy`；将 DSH 的 `lib/`、`team-peppy-ui/`、`package.json`、`cordis.patch.yml` 和本目录 Dockerfile、`.dockerignore` 放在 `/opt/team-peppy/release/`。每次同步前移除该 release 下旧的 `lib/` 和 `team-peppy-ui/`，避免散列文件名的旧编译产物残留；不要清理 `runtime/`、`config/` 或 `workspace/`。
+2. 将本目录脚本、compose 文件同步到 `/opt/team-peppy`；将 DSH 的 `lib/`、`team-peppy-ui/`、`prompts/`、`skills/`、`package.json`、`cordis.patch.yml` 和本目录 Dockerfile、`.dockerignore` 放在 `/opt/team-peppy/release/`。每次同步前移除该 release 下旧的 `lib/` 和 `team-peppy-ui/`，避免散列文件名的旧编译产物残留；不要清理 `runtime/`、`config/` 或 `workspace/`。
 3. 在主机执行：
 
    ```sh
@@ -65,6 +73,11 @@ python3 /opt/team-peppy/conversation.py
 python3 /opt/team-peppy/smoke.py --conversation
 ```
 
-`deploy-headers.py` 只替换 frontend 镜像和 Team Peppy 镜像；用 YAML 源位置仅更新 `front.image`，保留现有 Compose `!reset` 和其他配置。它停止独立 Team Peppy 服务后备份 runtime 和配置，保留原 master/session 命名空间，分别检查新服务就绪，失败时回退镜像。备份位于 root 私有的 `/opt/team-peppy/backups/message-headers-*`。不更新 Huly model、数据库、账号或其他服务。
+`deploy-headers.py` 只替换 frontend 镜像和 Team Peppy 镜像；用 YAML 源位置仅更新 `front.image`，保留现有 Compose `!reset` 和其他配置。后台镜像变化时，它停止独立 Team Peppy 服务后备份 runtime 和配置，保留原 master/session 命名空间，分别检查新服务就绪，失败时回退镜像；后台镜像已相同时跳过重启。备份位于 root 私有的 `/opt/team-peppy/backups/message-headers-*`。不更新 Huly model、数据库、账号或其他服务。
 
 2026-11-23 上线验证：Huly 前端 `ad863ff`、DSH `c76c755`，原 master/session 命名空间保持一致。65 个测试文件、1,226 项测试通过；真实私有频道验证了消息头绑定、原会话接手和 SSE、无新 emoji 回执/会话尾注、未 @ 上下文静默、相关讨论采纳和讨论不额外创建 worker。Huly 网页入口已核对为新产物。Mac `0.1.10-peppy.21` 已由 [发布流程](https://github.com/l1mzh0317/huly-superagent-desktop/actions/runs/45102884137) 发布，更新服务验签通过，差分基线为 `.20`、`.19`、`.18`。本次未构建 Windows，也未同步安装包镜像。
+
+
+2026-11-23 会话上下文版本：Huly 前端 `aaa97367fad0c5eef82c0aac424e226fed375dbf`，DSH `b5c76e4ca086489b1802a1c7bedd43650ee560a1`，66 个测试文件、1,241 项测试通过。编译后的真实 Svelte 组件与 Dashboard 浏览器检查覆盖可选会话选择、跨工作区清空、菜单不被编辑器裁切、关系图／时间线切换、原 worker 接手、键盘操作及 320px 布局。专用私有频道验证了跨频道指定同一个 worker、指定线程之后未 @ 的补充进入原 worker、静默上下文、入口合并、新会话独立执行，以及完成后保留可点击名称。部署后再次检查了原 master 不变、跨频道上下文和完成入口保留，公网 Huly index 与 Actions 验证产物一致。
+
+Mac `0.1.10-peppy.22` 已由 [Actions](https://github.com/l1mzh0317/huly-superagent-desktop/actions/runs/45129023459) 构建并[发布](https://github.com/l1mzh0317/huly-superagent-desktop/releases/tag/0.1.10-peppy.22)，Windows 构建已跳过。Huly 主机更新服务验签通过，差分基线为 `.21`、`.20`、`.19`；未向 HTTPS 服务同步完整安装包镜像。部署备份为 `/opt/team-peppy/backups/message-headers-1795418721`，真实验证记录为 `/opt/team-peppy/test-receipts-session-routing-final.jsonl`。
