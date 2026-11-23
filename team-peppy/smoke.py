@@ -4,6 +4,7 @@
 Creates a clearly named validator account and exchanges messages only with Team Peppy in that channel.
 Secrets stay on the host. Prints only test receipts and identifiers.
 """
+import argparse
 import base64
 import hashlib
 import hmac
@@ -17,6 +18,10 @@ import urllib.request
 import urllib.error
 import uuid
 import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--conversation', action='store_true')
+args = parser.parse_args()
 
 ROOT = Path('/opt/team-peppy')
 b = json.loads((ROOT/'config/binding.json').read_text())
@@ -169,7 +174,7 @@ for invalid, expected in [(None, 401), (jwt(qa, '0596cd5f-58b8-4fa4-866d-ba3fde0
         assert error.code==expected
 print(json.dumps({'phase':'passed','task':task['id'],'sessionId':task['sessionId'],'root':root,'inputCount':count,'snapshotRecords':len(snapshot['records']),'replyReturned':True}), flush=True)
 
-if '--conversation' in sys.argv:
+if args.conversation:
     def wait_for(check, label, seconds=300):
         until = time.time()+seconds
         while time.time() < until:

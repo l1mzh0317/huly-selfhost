@@ -62,7 +62,7 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 ```sh
 python3 /opt/team-peppy/deploy-headers.py --frontend /opt/team-peppy/frontend-release/SOURCE --source FULL_SOURCE_SHA --dsh-version header-c76c755
 python3 /opt/team-peppy/conversation.py
-python3 /opt/team-peppy/smoke.py conversation
+python3 /opt/team-peppy/smoke.py --conversation
 ```
 
 `deploy-headers.py` 只替换 frontend 镜像和 Team Peppy 镜像；用 YAML 源位置仅更新 `front.image`，保留现有 Compose `!reset` 和其他配置。它停止独立 Team Peppy 服务后备份 runtime 和配置，保留原 master/session 命名空间，分别检查新服务就绪，失败时回退镜像。备份位于 root 私有的 `/opt/team-peppy/backups/message-headers-*`。不更新 Huly model、数据库、账号或其他服务。
