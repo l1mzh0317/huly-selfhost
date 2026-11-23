@@ -11,20 +11,16 @@ services:
     env_file: ./config/runtime.env
     environment:
       HULY_ACCOUNTS_URL: ${HULY_ACCOUNTS_URL:-http://account:3000}
-      TEAM_PEPPY_INSTANCES_PROBE_SOCKET: /run/pepper-instance-probe/connectivity.sock
-    depends_on:
-      - instances-probe
     ports:
       - "127.0.0.1:3083:13082"
     volumes:
       - ./runtime:/home/node/.dsh
       - ./workspace:/workspace
       - ./config/huly-token:/run/secrets/huly-token:ro
-      - instance-probe:/run/pepper-instance-probe:ro
     networks:
       - huly
     cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
+    security_opt: ["no-new-privileges:true"]
     logging:
       driver: local
     healthcheck:
@@ -33,22 +29,6 @@ services:
       timeout: 5s
       start_period: 60s
       retries: 4
-  instances-probe:
-    image: team-peppy:${TEAM_PEPPY_VERSION:-huly-v1}
-    entrypoint: [node, /opt/pepper-instances-probe.cjs]
-    command: []
-    user: "0:0"
-    init: true
-    restart: unless-stopped
-    network_mode: host
-    read_only: true
-    volumes:
-      - ./instances-probe.cjs:/opt/pepper-instances-probe.cjs:ro
-      - instance-probe:/run/pepper-instance-probe
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-volumes:
-  instance-probe:
 networks:
   huly:
     external: true

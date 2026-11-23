@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--frontend', type=Path, required=True)
 parser.add_argument('--source', required=True)
 parser.add_argument('--dsh-version', required=True)
+parser.add_argument('--team-compose', type=Path)
 args = parser.parse_args()
 assert re.fullmatch(r'[a-f0-9]{40}', args.source)
 assert re.fullmatch(r'[A-Za-z0-9_.-]+', args.dsh_version)
@@ -35,6 +36,11 @@ root = Path('/opt/team-peppy')
 huly = Path('/opt/huly')
 old_front, old_dsh, previous = inspect('huly-front-1'), inspect('team-peppy-app-1'), native()
 change_backend = old_dsh['Config']['Image'] != 'team-peppy:'+args.dsh_version
+team_compose = root/'compose.yaml'
+if args.team_compose:
+    assert change_backend, 'Compose changes require a new DSH image'
+    run(['docker', 'compose', '--project-directory', str(root), '-f', str(args.team_compose), 'config', '--quiet'], root)
+
 base = old_front['Config']['Image']
 user = old_front['Config'].get('User') or 'root'
 assert re.fullmatch(r'[\w./:@-]+', base) and re.fullmatch(r'[\w:-]+', user)
@@ -54,6 +60,9 @@ backup.mkdir(parents=True,mode=0o700); backup.chmod(0o700)
 version = root/'.env'
 original_env = version.read_text() if version.exists() else ''
 (backup/'team-peppy.env').write_text(original_env); (backup/'team-peppy.env').chmod(0o600)
+if args.team_compose:
+    shutil.copy2(team_compose, backup/'team-peppy.compose.yaml')
+    (backup/'team-peppy.compose.yaml').chmod(0o600)
 (backup/'images.json').write_text(json.dumps({'front':old_front['Config']['Image'],'dsh':old_dsh['Config']['Image'],'masterId':previous['masterId']}))
 
 def set_version(value):
@@ -67,6 +76,7 @@ try:
         run(['docker','compose','stop','-t','120','app'],root)
         shutil.copytree(root/'runtime',backup/'runtime',symlinks=True)
         set_version(args.dsh_version)
+        if args.team_compose: shutil.copyfile(args.team_compose, team_compose)
     config.write_text(updated)
     run(front_command+['config','--quiet'],huly)
     if change_backend: run(['docker','compose','up','-d','--no-deps','app'],root)
@@ -94,6 +104,7 @@ except Exception:
     config.write_text(original)
     old_tag=old_dsh['Config']['Image'].split(':')[-1]
     if change_backend:
+        if args.team_compose: shutil.copyfile(backup/'team-peppy.compose.yaml', team_compose)
         set_version(old_tag)
         run(['docker','compose','up','-d','--no-deps','app'],root)
     run(front_command+['up','-d','--no-deps','front'],huly)

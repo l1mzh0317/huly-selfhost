@@ -57,9 +57,9 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 
 ## Instances 连通性检查
 
-升级 Instances 时，随新版 `compose.yaml` 同步 `instances-probe.cjs`，再按当前版本的流程构建镜像和启动 `app`。Compose 会同时启动 `instances-probe`。它使用主机网络检查已登记的 Tailscale IP 和 TCP 端口，通过专用 Unix socket 返回结果。应用容器只读挂载此 socket 的目录，探针不监听任何网络端口，也不使用 Tailscale 管理凭据。Tailscale 继续由主机管理。
+Instances 的「Team Peppy」检查从运行 DSH 的 `app` 容器直接连接已登记的 Tailscale IP 和 TCP 端口。此结果反映 Team Peppy 的运行网络。迁移部署时，在新的运行环境配置目标网络路由和访问权限。
 
-管理员在 Chat 右侧「+」中打开 Instances，登记机器和服务，然后按成员或 Tailscale 组预览授权。Tailscale 管理员将生成的片段合并到现有 Tailnet 策略，通过策略测试后，Huly 管理员记录已应用。撤权时先隐藏 Pepper 入口，再移除 Tailnet 规则，运行生成的拒绝测试并记录结果。成员在 Mac 上用授权登记的 Tailscale 登录名打开获授权服务。HTTPS 使用目标设备的 MagicDNS 名称和证书，SSH 使用本机 SSH 客户端与设备已有的登录规则。
+管理员在 Chat 右侧「+」中打开 Instances，登记机器和服务，然后在「配置授权」中选择端口、Huly 成员和对应的 Tailscale 登录名。选择多个端口可按账号白名单提交整批规则，等待应用期间可以从任一关联端口的「查看规则」重新打开。单端口授权也支持选填 Tailscale 组。Tailscale 管理员将生成的片段合并到现有 Tailnet 策略，通过策略测试后，Huly 管理员记录已应用。撤权时先隐藏 Pepper 入口，再移除 Tailnet 规则，运行生成的拒绝测试并记录结果。成员在 Mac 上用授权登记的 Tailscale 登录名打开获授权服务。HTTPS 使用目标设备的 MagicDNS 名称和证书，SSH 使用本机 SSH 客户端与设备已有的登录规则。
 
 工作区所有者或管理员可在 Huly「工作区设置 → 成员」授予或撤销成员的 Instances 管理权限。服务通过 Compose 中的 `HULY_ACCOUNTS_URL` 核对实时工作区成员身份。
 
