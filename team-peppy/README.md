@@ -55,6 +55,12 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 
 已有实例升级线程讨论行为时，只运行 `python3 conversation.py`。它保留现有成员名单、策略规则、模型和管理员提示配置，启用受限线程观察，并加入 @ 必答、未 @ 按相关性介入的对话规则；该脚本可重复运行。
 
+## Instances 连通性检查
+
+升级 Instances 时，随新版 `compose.yaml` 同步 `instances-probe.cjs`，再按当前版本的流程构建镜像和启动 `app`。Compose 会同时启动 `instances-probe`。它使用主机网络检查已登记的 Tailscale IP 和 TCP 端口，通过专用 Unix socket 返回结果。应用容器只读挂载此 socket 的目录，探针不监听任何网络端口，也不使用 Tailscale 管理凭据。Tailscale 继续由主机管理。
+
+管理员在 Chat 右侧「+」中打开 Instances，登记机器和服务，然后按成员或 Tailscale 组预览授权。Tailscale 管理员将生成的片段合并到现有 Tailnet 策略，通过策略测试后，Huly 管理员记录已应用。撤权时先隐藏 Pepper 入口，再移除 Tailnet 规则，运行生成的拒绝测试并记录结果。成员在 Mac 上用授权登记的 Tailscale 登录名打开获授权服务。HTTPS 使用目标设备的 MagicDNS 名称和证书，SSH 使用本机 SSH 客户端与设备已有的登录规则。
+
 ## 验证、更新和回退
 
 `python3 smoke.py` 在仅管理员、机器人和专用检查账号可见的私有频道执行真实测试，不向公共频道发消息。它检查创建任务、原 session 接手、相同请求只录入一次、原线程回帖、SSE 历史和越权拒绝。调用真实模型，通常需数分钟；保留检查任务和消息以便核对。
