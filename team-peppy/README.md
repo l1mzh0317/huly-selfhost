@@ -54,3 +54,15 @@ Nginx 将其转到 `/files/<workspace UUID>/team-peppy/`，复用 Huly 的工作
 更新前备份 `/opt/team-peppy/runtime` 和 `config`，保留镜像 ID。只替换 release、构建新 tag，再以 `TEAM_PEPPY_VERSION=<tag> docker compose up -d app` 启动；同一状态目录不能同时启动两个实例。`deployed-revision.json` 记录部署的源提交和测试回执，不放密钥。
 
 回退：选择上一镜像 tag 重建容器，保留原 runtime。停止本功能可运行 `docker compose stop app`；Nginx 变更前的备份为 `/opt/huly/.huly.nginx.before-team-peppy-*`。若恢复路由，先 `nginx -t` 再 reload。不要停整个 Huly compose 或删除 runtime。
+
+### 消息头版本上线
+
+前端在 `huly-superagent-desktop` 的 Mac 发布流程中构建，Mac 包和 Huly 网页使用同一份已验证的 `dev/prod/dist`。将其同步到 Huly 主机的一个新目录（目录下保留 `dist/`），然后执行：
+
+```sh
+python3 /opt/team-peppy/deploy-headers.py --frontend /opt/team-peppy/frontend-release/SOURCE --source FULL_SOURCE_SHA --dsh-version header-0bb2325
+python3 /opt/team-peppy/conversation.py
+python3 /opt/team-peppy/smoke.py conversation
+```
+
+`deploy-headers.py` 只替换 frontend 镜像和 Team Peppy 镜像；用 YAML 源位置仅更新 `front.image`，保留现有 Compose `!reset` 和其他配置。它停止独立 Team Peppy 服务后备份 runtime 和配置，保留原 master/session 命名空间，分别检查新服务就绪，失败时回退镜像。备份位于 root 私有的 `/opt/team-peppy/backups/message-headers-*`。不更新 Huly model、数据库、账号或其他服务。
