@@ -63,6 +63,8 @@ Instances 的「Team Peppy」检查从运行 DSH 的 `app` 容器直接连接已
 
 工作区所有者或管理员可在 Huly「工作区设置 → 成员」授予或撤销成员的 Instances 管理权限。服务通过 Compose 中的 `HULY_ACCOUNTS_URL` 核对实时工作区成员身份。
 
+`expose.py` 会为所有 Huly 工作区路由 `/files/<workspace-uuid>/team-peppy/api/instances`（含单段子路径操作）到 Team Peppy 服务，同时继续将 Team Peppy Dashboard 与机器人路由严格限定在绑定的 PT 工作区。
+
 ## 验证、更新和回退
 
 `python3 smoke.py` 在仅管理员、机器人和专用检查账号可见的私有频道执行真实测试，不向公共频道发消息。它检查创建任务、原 session 接手、相同请求只录入一次、原线程回帖、SSE 历史和越权拒绝。调用真实模型，通常需数分钟；保留检查任务和消息以便核对。
