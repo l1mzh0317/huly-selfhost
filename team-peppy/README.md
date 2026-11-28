@@ -65,6 +65,18 @@ Instances 的「Team Peppy」检查从运行 DSH 的 `app` 容器直接连接已
 
 `expose.py` 会为所有 Huly 工作区路由 `/files/<workspace-uuid>/team-peppy/api/instances`（含单段子路径操作）到 Team Peppy 服务，同时继续将 Team Peppy Dashboard 与机器人路由严格限定在绑定的 PT 工作区。
 
+### 一键自动写入 Tailscale 策略（可选）
+
+若希望管理员在 Instances 侧边栏点击「一键授权 / 一键撤权」直接生效而无需手动复制 JSON 到 Tailscale 控制台，在 Tailscale Admin Console 创建一个仅含 `policy_file` 权限的 OAuth Client（或 API Key），写入 `/opt/team-peppy/config/runtime.env` 后重启 `app` 容器即可：
+
+```env
+TAILSCALE_TAILNET=-
+TAILSCALE_OAUTH_CLIENT_ID=<your-oauth-client-id>
+TAILSCALE_OAUTH_CLIENT_SECRET=<your-oauth-client-secret>
+```
+
+（也支持 `TAILSCALE_OAUTH_CLIENT_SECRET_FILE`、`TAILSCALE_API_KEY` 或 `TAILSCALE_API_KEY_FILE`。）未配置时自动保留原有手动预览与复制规则流程。
+
 ## 验证、更新和回退
 
 `python3 smoke.py` 在仅管理员、机器人和专用检查账号可见的私有频道执行真实测试，不向公共频道发消息。它检查创建任务、原 session 接手、相同请求只录入一次、原线程回帖、SSE 历史和越权拒绝。调用真实模型，通常需数分钟；保留检查任务和消息以便核对。
